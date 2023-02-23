@@ -1,0 +1,9 @@
+{
+  "name": "NightLight",
+  "version_number": "1.0.0",
+  "website_url": "https://discord.gg/pdHgy6Bsng",
+  "description": "Allows you to change the brightness of the game at night.",
+  "dependencies": [
+    "denikson-BepInExPack_Valheim-5.4.1901"
+  ]
+}
