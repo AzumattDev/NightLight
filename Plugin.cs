@@ -11,6 +11,17 @@ using UnityEngine;
 
 namespace NightLight
 {
+    public enum BrightnessDirectionOption
+        {
+            Darken,
+            Brighten
+        }
+    public enum Toggle
+        {
+            On = 1,
+            Off = 0
+        }
+
     [BepInPlugin(ModGUID, ModName, ModVersion)]
     public class NightLightPlugin : BaseUnityPlugin
     {
@@ -25,19 +36,14 @@ namespace NightLight
         public static readonly ManualLogSource NightLightLogger =
             BepInEx.Logging.Logger.CreateLogSource(ModName);
 
-        public enum Toggle
-        {
-            On = 1,
-            Off = 0
-        }
-
         public void Awake()
         {
-            ControlBrightnessToggle = config("1 - General", "Control Brightness", Toggle.On,
-                "If on, the mod will control the brightness at night.");
-            NightBrightnessMultiplier = config("1 - General", "Night Brightness Multiplier", 0f,
-                "Changes how bright it looks at night. A value between 5 and 10 will result in nearly double in brightness. 0 is default.");
-
+            ControlToggle = config("1 - General", "Control Night Brightness or Darkness", Toggle.On,
+                "If on, the mod will control the brightness or darkness at night.");
+            BrightnessDirection = config("1 - General", "Brightness Direction", BrightnessDirectionOption.Darken,
+                "Choose whether to make the game brighter or darker.");
+            NightBrightnessMultiplier = config("1 - General", "Night Bright or Dark Multiplier", 0f,
+                "Changes how bright or dark it looks at night. Try using 1.0, 2.0, or 3.0. Higher values will get very dark. 0 is default.");
 
             Assembly assembly = Assembly.GetExecutingAssembly();
             _harmony.PatchAll(assembly);
@@ -77,7 +83,8 @@ namespace NightLight
 
         #region ConfigOptions
 
-        internal static ConfigEntry<Toggle> ControlBrightnessToggle = null!;
+        public static ConfigEntry<Toggle> ControlToggle = null!;
+        public static ConfigEntry<BrightnessDirectionOption> BrightnessDirection = null!;
         public static ConfigEntry<float> NightBrightnessMultiplier = null!;
 
         private ConfigEntry<T> config<T>(string group, string name, T value, ConfigDescription description)
@@ -110,7 +117,7 @@ namespace NightLight
 
         static void Prefix(EnvMan __instance, ref EnvSetup env)
         {
-            if (NightLightPlugin.ControlBrightnessToggle.Value == NightLightPlugin.Toggle.On)
+            if (NightLightPlugin.ControlToggle.Value == Toggle.On)
             {
                 ApplyEnvModifier(env);
             }
@@ -124,16 +131,30 @@ namespace NightLight
             env.m_sunColorNight = ApplyBrightnessModifier(env.m_sunColorNight);
         }
 
-        
         private static Color ApplyBrightnessModifier(Color color)
-        {
+        {  
             float brightnessMultiplier = NightLightPlugin.NightBrightnessMultiplier.Value;
-            float scaleFunc = Mathf.Clamp01(brightnessMultiplier >= 0 ?
-                (Mathf.Sqrt(brightnessMultiplier) * 1.069952679E-4f) + 1f :
-                1f - (Mathf.Sqrt(Mathf.Abs(brightnessMultiplier)) * 1.069952679E-4f));
+            float scaleFunc = 1f;
+
+            if (NightLightPlugin.BrightnessDirection.Value == BrightnessDirectionOption.Darken)
+            {
+                // Darken the colors
+                scaleFunc = Mathf.Clamp01(brightnessMultiplier >= 0 ?
+                    1f - (Mathf.Sqrt(brightnessMultiplier) * 1.069952679E-4f) :
+                    1f + (Mathf.Sqrt(Mathf.Abs(brightnessMultiplier)) * 1.069952679E-4f));
+            }
+            else
+            {
+                // Brighten the colors
+                scaleFunc = Mathf.Clamp01(brightnessMultiplier >= 0 ?
+                    1f + (Mathf.Sqrt(brightnessMultiplier) * 1.069952679E-4f) :
+                    1f - (Mathf.Sqrt(Mathf.Abs(brightnessMultiplier)) * 1.069952679E-4f));
+            }
+
             Color.RGBToHSV(color, out float h, out float s, out float v);
             v *= scaleFunc;
             return Color.HSVToRGB(h, s, v);
         }
+
     }
 }
